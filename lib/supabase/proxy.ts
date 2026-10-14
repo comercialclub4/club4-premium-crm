@@ -21,15 +21,16 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
   const pathname = request.nextUrl.pathname;
   const isLogin = pathname === '/login';
+  const hasClaims = Boolean(claimsData?.claims);
 
-  if (!user && !isLogin) {
+  if (!hasClaims && !isLogin) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (user && (isLogin || pathname === '/')) {
+  if (hasClaims && (isLogin || pathname === '/')) {
     return NextResponse.redirect(new URL('/crm', request.url));
   }
 
