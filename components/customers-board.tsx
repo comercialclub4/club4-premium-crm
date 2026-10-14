@@ -22,8 +22,6 @@ const emptyForm: FormState = {
   name: '', email: '', phone: '', company: '', status: 'active', notes: '',
 };
 
-const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
 export default function CustomersBoard() {
   const supabase = createClient();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,6 +34,7 @@ export default function CustomersBoard() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
 
   async function loadCustomers() {
@@ -61,11 +60,21 @@ export default function CustomersBoard() {
     });
   }, [customers, search, status]);
 
-  function openCreate() { setEditing(null); setForm(emptyForm); setError(''); setNotice(''); }
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
+    setError('');
+  }
+
+  function openCreate() {
+    setEditing(null); setForm(emptyForm); setError(''); setNotice(''); setModalOpen(true);
+  }
+
   function openEdit(customer: Customer) {
     setEditing(customer);
     setForm({ name: customer.name, email: customer.email ?? '', phone: customer.phone ?? '', company: customer.company ?? '', status: customer.status, notes: customer.notes ?? '' });
-    setError(''); setNotice('');
+    setError(''); setNotice(''); setModalOpen(true);
   }
 
   async function save(event: FormEvent) {
@@ -77,7 +86,7 @@ export default function CustomersBoard() {
       ? await supabase.from('customers').update(payload).eq('id', editing.id).select().single()
       : await supabase.from('customers').insert({ ...payload, owner_id: userId }).select().single();
     if (result.error) setError(result.error.message);
-    else { setNotice(editing ? 'Cliente atualizado com sucesso.' : 'Cliente cadastrado com sucesso.'); await loadCustomers(); setEditing(null); setForm(emptyForm); }
+    else { setNotice(editing ? 'Cliente atualizado com sucesso.' : 'Cliente cadastrado com sucesso.'); await loadCustomers(); closeModal(); }
     setSaving(false);
   }
 
@@ -115,7 +124,7 @@ export default function CustomersBoard() {
           </select>
         </div>
 
-        {error && <div className="inline-message">{error}</div>}
+        {error && !modalOpen && <div className="inline-message">{error}</div>}
         {notice && <div className="success-message">{notice}</div>}
 
         <section className="panel">
@@ -135,12 +144,10 @@ export default function CustomersBoard() {
         <p className="muted customer-summary">{filtered.length} cliente{filtered.length === 1 ? '' : 's'} exibido{filtered.length === 1 ? '' : 's'} · Carteira atual</p>
       </section>
 
-      {(editing || form !== emptyForm && form.name !== '' || (!editing && form.name === '' && false)) && null}
-      {editing !== null || form.name !== '' || notice === '' && false ? null : null}
-      {editing !== null || form.name !== '' ? (
-        <div className="modal-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) { setEditing(null); setForm(emptyForm); } }}>
+      {modalOpen && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) closeModal(); }}>
           <form className="modal-card lead-form" onSubmit={save}>
-            <div className="modal-header"><div><p className="eyebrow">Cadastro</p><h2>{editing ? 'Editar cliente' : 'Novo cliente'}</h2></div><button type="button" className="icon-button" onClick={() => { setEditing(null); setForm(emptyForm); }}>✕</button></div>
+            <div className="modal-header"><div><p className="eyebrow">Cadastro</p><h2>{editing ? 'Editar cliente' : 'Novo cliente'}</h2></div><button type="button" className="icon-button" onClick={closeModal}>✕</button></div>
             <div className="form-grid">
               <label>Nome *<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
               <label>Empresa<input value={form.company ?? ''} onChange={(e) => setForm({ ...form, company: e.target.value })} /></label>
@@ -150,10 +157,10 @@ export default function CustomersBoard() {
               <label className="form-full">Observações<textarea rows={4} value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
             </div>
             {error && <p className="form-error">{error}</p>}
-            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => { setEditing(null); setForm(emptyForm); }}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar cliente'}</button></div>
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={closeModal}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar cliente'}</button></div>
           </form>
         </div>
-      ) : null}
+      )}
     </main>
   );
 }
